@@ -21,7 +21,7 @@ public class SocketClientExample {
         for(int i=0; i<5;i++){
             //establish socket connection to server
             //String ip = host.getHostName();
-            String ip = "187.189.72.29";
+            String ip = "52.161.30.158";
             socket = new Socket(ip, 9876);
             //write to socket using ObjectOutputStream
             oos = new ObjectOutputStream(socket.getOutputStream());
