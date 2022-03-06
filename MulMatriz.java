@@ -218,15 +218,13 @@ class MulMatriz {
         if (args.length != 2){
             System.err.println("Se debe pasar como parametros el numero de nodo y la IP del nodo");
             System.exit(1);
-        }
+        } 
 
-        nodo = Integer.valueOf(args[0]);  // el primer parametro es el numero de nodo
-        ip = args[1];  // el segundo parametro es la IP del siguiente nodo en el anillo
+        int nodo = Integer.valueOf(args[0]);  // el primer parametro es el numero de nodo
+        String ip = args[1];  // el segundo parametro es la IP del siguiente nodo en el anillo
 
-        Worker w = new Worker();
-        w.start();
         Socket conexion;
-        System.out.println("Nodo "+nodo + " conectado a la ip: "+ ip + "/50000");
+        System.out.println("Nodo "+nodo + " conectado a la ip: "+ ip + "/5000");
         for(;;){
             try {
                 conexion = new Socket(ip,50000);
@@ -235,14 +233,12 @@ class MulMatriz {
                 Thread.sleep(500);
             }
         }
-        salida = new DataOutputStream(conexion.getOutputStream());
-        w.join();
 
-        if(node == 0){
+        if(nodo == 0){
             nodeServer();
         }
         else{
-            nodeCliente(node);
+            nodeCliente(nodo);
         }
     }
 }
