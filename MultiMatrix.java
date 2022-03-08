@@ -2,7 +2,7 @@ import java.net.*;
 import java.io.*;
  
 public class MultiMatrix {
-    static int N = 8;
+    static int N = 1000;
     static long[][] A = new long[N][N];
     static long[][] B = new long[N][N];
     static long[][] C = new long[N][N];
