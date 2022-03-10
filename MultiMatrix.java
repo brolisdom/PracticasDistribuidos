@@ -70,7 +70,7 @@ public class MultiMatrix {
             String ip = "13.78.180.152";
             int nodo = Integer.valueOf(args[0]);
             if (nodo == 0) objeto.Cliente(5000);
-            else objeto.Servidor(nodo, 5000, "localhost");
+            else objeto.Servidor(nodo, 5000, ip);
         } else{ 
             System.err.println("Uso:");
             System.err.println("java MultiMatrix <nodo>");
