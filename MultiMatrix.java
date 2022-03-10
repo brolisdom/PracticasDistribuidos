@@ -1,21 +1,41 @@
 import java.net.*;
 import java.io.*;
- 
+
 public class MultiMatrix {
-    static int N = 1000;
-    static long[][] A = new long[N][N];
-    static long[][] B = new long[N][N];
-    static long[][] C = new long[N][N];
-    static long[][] AX = new long[N/2][N];
-    static long[][] BX = new long[N/2][N];
-    static long[][] CX = new long[N/2][N/2];
+    static int N = 8;
+    static double[][] A = new double[N][N];
+    static double[][] B = new double[N][N];
+    static double[][] C = new double[N][N];
+    static double[][] Ax = new double[N/2][N];
+    static double[][] Bx = new double[N/2][N];
+    static double[][] Cx = new double[N/2][N/2];
 
     private Socket socket = null;
     private DataInputStream in = null;
     private DataOutputStream out = null;
 
-    public void Server(int port) {
-        try { // inicializa el servidor y espera las conexiones
+    public void Servidor(int node, int port, String ip) {
+        try {
+            socket = new Socket(ip, port);
+            out = new DataOutputStream(socket.getOutputStream());
+            in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            System.out.println("En espera del cliente");
+            System.out.println(in.readUTF());
+            out.writeInt(node);
+            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) Ax[i][j] = in.readDouble();
+            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) Bx[i][j] = in.readDouble();
+            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) for (int k=0; k<N; k++) Cx[i][j] += Ax[i][k]*Bx[j][k];
+            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) out.writeDouble(Cx[i][j]);
+            socket.close();
+        } catch(UnknownHostException u) {
+            System.out.println(u);
+        } catch(IOException i) {
+            System.out.println(i);
+        }
+    }
+
+    public void Cliente(int port) {
+        try {
             ServerSocket server = new ServerSocket(port);
             System.out.println("Esperando a servidores");
             initMatrix();
@@ -32,34 +52,13 @@ public class MultiMatrix {
                 else if (nodo == 2) bx = 0;
                 else if (nodo == 3) ax = 0;
                 else return;
-                System.out.println("Conectado a servidor " + nodo); // funcion principal de nodo 0
-                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) out.writeLong(A[i+ax][j]); // envia matriz Ax a nodo x
-                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) out.writeLong(B[i+bx][j]); // envia matriz Bx a nodo x
-                for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) C[i+ax][j+bx] = in.readLong();  // Recibe matriz Cx
+                System.out.println("Conectado a servidor " + nodo);
+                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) out.writeDouble(A[i+ax][j]);
+                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) out.writeDouble(B[i+bx][j]); 
+                for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) C[i+ax][j+bx] = in.readDouble();
                 socket.close();
                 nodos++;
             } getChecksum();
-        } catch(IOException i) {
-            System.out.println(i);
-        }
-    }
-
-    public void Client(int node, int port, String ip) {
-        try { // inicializa el cliente para comunicarse con el servidor
-            socket = new Socket(ip, port);
-            out = new DataOutputStream(socket.getOutputStream());
-            in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            System.out.println("En espera del cliente");
-            System.out.println(in.readUTF());
-            out.writeInt(node);
-            // funcion principal de cada nodo:
-            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) AX[i][j] = in.readLong(); // Recibe Ax del nodo 0
-            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) BX[i][j] = in.readLong(); // Recibe Bx del nodo 0
-            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) for (int k=0; k<N; k++) CX[i][j] += AX[i][k]*BX[j][k]; // multiplica Ax * Bx
-            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) out.writeLong(CX[i][j]); // Envia resultado al nodo 0
-            socket.close();
-        } catch(UnknownHostException u) {
-            System.out.println(u);
         } catch(IOException i) {
             System.out.println(i);
         }
@@ -70,11 +69,11 @@ public class MultiMatrix {
         if (args.length == 1) {
             String ip = "13.78.180.152";
             int nodo = Integer.valueOf(args[0]);
-            if (nodo == 0) objeto.Server(5000);
-            else objeto.Client(nodo, 5000, ip);
+            if (nodo == 0) objeto.Cliente(5000);
+            else objeto.Servidor(nodo, 5000, "localhost");
         } else{ 
             System.err.println("Uso:");
-            System.err.println("java MultiMAtrix <nodo>");
+            System.err.println("java MultiMatrix <nodo>");
             System.exit(0);
         }
     }
@@ -88,7 +87,7 @@ public class MultiMatrix {
             C[i][j] = 0;
         } for (int i=0; i<N; i++) // B traspuesta
             for (int j=0; j<i; j++) {
-            long x = B[i][j];
+            double x = B[i][j];
             B[i][j] = B[j][i];
             B[j][i] = x;
         }
@@ -117,7 +116,7 @@ public class MultiMatrix {
             }
         }
         // sumatoria de valores en la matriz C
-        long checksum = 0;
+        double checksum = 0;
         if (N != 1000) System.out.println("Matriz C:");
         for (int i=0; i<N; i++) {
             for (int j=0; j<N; j++) {
