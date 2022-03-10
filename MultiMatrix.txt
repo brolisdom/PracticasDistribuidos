@@ -1,0 +1,175 @@
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.ByteBuffer;
+
+public class MultiMatrix {
+    static int N=8;
+    // static int N=1000;
+    static int port = 5000;
+    static double[][] A;
+    static double[][] B;
+    static double[][] C;
+    static double[][] Ax;
+    static double[][] Bx;
+    static double[][] Cx;
+
+    String [] ip= {"20.25.249.13", "20.25.250.63", "20.25.248.7"};
+                    //nodo1         nodo2            nodo3
+
+    private DataInputStream in = null;
+    private DataOutputStream out = null;
+
+    public void doClient(){
+        Socket[] socket = new Socket[3];
+        initMatrix();
+        int ax = 0, bx = 0;
+        int nodo = 1;
+        ByteBuffer b = ByteBuffer.allocate(N*N*8);
+        try {
+            while (nodo < 4) {
+                b.clear();
+                System.out.println("Conectado a servidor " + nodo);
+                socket[nodo-1] = new Socket(ip[nodo-1], port);
+                out = new DataOutputStream(socket[nodo-1].getOutputStream());
+                if(nodo==2) 
+                    bx = N/2;
+                else if(nodo==3){
+                    ax = N/2;
+                    bx = 0;
+                }
+                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) b.putDouble(A[i+ax][j]);
+                for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) b.putDouble(B[i+bx][j]);
+                out.write(b.array());
+                nodo++;
+            }
+            
+            //Realizamos el producto C4
+            for (int i=0; i<N/2; i++) 
+                for (int j=0; j<N/2; j++) 
+                    for (int k=0; k<N; k++) 
+                        C[i+N/2][j+N/2] += A[i+N/2][k]*B[j+N/2][k];
+            
+            //Recibimos C1, C2 y C3
+            nodo = 1;
+            byte[] a = new byte[(N/2)*(N/2)*8];
+            ax = bx = 0;
+            b.clear();
+            while(nodo < 4){
+                in = new DataInputStream(socket[nodo-1].getInputStream());
+                read( in, a, 0, (N/2)*(N/2)*8 );
+                b = ByteBuffer.wrap(a);
+                if(nodo==2) 
+                    bx = N/2;
+                else if(nodo==3){
+                    ax = N/2;
+                    bx = 0;
+                }
+                for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) C[i+ax][j+bx] = b.getDouble();
+                socket[nodo-1].close();
+                nodo++;
+            }
+            getChecksum();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+    }
+
+    public static void getChecksum() {
+        // impresion de matriz A y B
+        if (N != 1000) {
+            System.out.println("Matriz A:");
+            for (int i=0; i<N; i++) {
+                for (int j=0; j<N; j++) 
+                    System.out.print(A[i][j]+"\t");
+                System.out.println("");
+            }
+            System.out.println("Matriz B (transpuesta):");
+            for (int i=0; i<N; i++) {
+                for (int j=0; j<N; j++) 
+                    System.out.print(B[i][j]+"\t");
+                System.out.println("");
+            }
+        }
+        // sumatoria de valores en la matriz C
+        double checksum = 0;
+        if (N != 1000) System.out.println("Matriz C:");
+        for (int i=0; i<N; i++) {
+            for (int j=0; j<N; j++) {
+                checksum +=  C[i][j];
+                if (N != 1000) System.out.print(C[i][j]+"\t");
+            } if (N != 1000) System.out.println("");
+        } System.out.println("Resultado (checksum): "+checksum);
+    }
+
+    public void doServer(){
+        try {
+            ServerSocket server = new ServerSocket(port);
+            System.out.println("Esperando cliente");
+            Socket socket = server.accept();
+            out = new DataOutputStream(socket.getOutputStream());
+            in = new DataInputStream(socket.getInputStream());
+            byte[] a = new byte[N*N*8];
+            read(in, a, 0, N*N*8);
+            ByteBuffer b = ByteBuffer.wrap(a);
+            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) Ax[i][j] = b.getDouble();
+            for (int i=0; i<N/2; i++) for (int j=0; j<N; j++) Bx[i][j] = b.getDouble();
+            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) for (int k=0; k<N; k++) Cx[i][j] += Ax[i][k]*Bx[j][k];
+            ByteBuffer b2 = ByteBuffer.allocate((N/2)*(N/2)*8);
+            for (int i=0; i<N/2; i++) for (int j=0; j<N/2; j++) b2.putDouble(Cx[i][j]);
+            out.write(b2.array());
+            System.out.println("Respuesta enviada");
+            Thread.sleep(1000);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+    }
+
+    public static void initMatrix() {
+        // creacion de la matrices A, B, C
+        for (int i=0; i<N; i++) 
+            for (int j=0; j<N; j++) {
+                A[i][j] = i + 5  * j;
+                B[i][j] = 5 * i - j;
+                C[i][j] = 0;
+        } 
+        double x;
+        for (int i=0; i<N; i++) // B traspuesta
+            for (int j=0; j<i; j++) {
+                x = B[i][j];
+                B[i][j] = B[j][i];
+                B[j][i] = x;
+            }
+    }
+
+    static void read(DataInputStream f,byte[] b,int posicion,int longitud) throws Exception{
+        while (longitud > 0){
+            int n = f.read(b,posicion,longitud);
+            posicion += n;
+            longitud -= n;
+        }
+    }
+    public static void main(String[] args) {
+        MultiMatrix objeto = new MultiMatrix();
+        if (args.length == 1) {
+            int nodo = Integer.valueOf(args[0]);
+
+            A = new double[N][N];
+            B = new double[N][N];
+            C = new double[N][N];
+            Ax = new double[N/2][N];
+            Bx = new double[N/2][N];
+            Cx = new double[N/2][N/2];
+
+            if (nodo == 0) objeto.doClient();
+            else objeto.doServer();
+        } else{ 
+            System.err.println("Uso:");
+            System.err.println("java MultiMatrix <nodo>");
+            System.exit(0);
+        }
+    }
+}
